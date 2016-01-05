@@ -16,6 +16,7 @@ public class Controller2D : RaycastController {
         collisions.faceDir = 1;
     }
 
+    // struct to store collision and other info
     public struct CollisionInfo
     {
         public bool above, below, left, right;
@@ -33,6 +34,7 @@ public class Controller2D : RaycastController {
         }
     }
 
+    // overloaded function to move without passing input in
     public void Move(Vector3 velocity, bool standingOnPlatform)
     {
         Move(velocity, Vector2.zero, standingOnPlatform);
@@ -40,25 +42,34 @@ public class Controller2D : RaycastController {
 
     public void Move(Vector3 velocity, Vector2 input, bool standingOnPlatform = false)
     {
+        // get new raycast positions
         UpdateRaycastOrigins();
+        // reset collision info
         collisions.Reset();
         collisions.velocityOld = velocity;
+        // save player input
         playerInput = input;
 
+        // if horizontal movement, set which way player is facing
         if (velocity.x != 0)
         {
             collisions.faceDir = (int) Mathf.Sign(velocity.x);
         }
 
+        // if moving down see if descending slope
         if (velocity.y < 0)
         {
             DescendSlope(ref velocity);
         }
+        // see if colliding with anything on right or left
         HorizontalCollisions(ref velocity);
+        // if moveing vertically, see if colliding with anything on top or bottom
         if( velocity.y != 0.0f )
             VerticalCollisions(ref velocity);
+        // move the player based on adjusted velocity
         transform.Translate(velocity);
 
+        // if standing on platform, mark as colliding with something below
         if (standingOnPlatform)
         {
             collisions.below = true;
@@ -70,6 +81,7 @@ public class Controller2D : RaycastController {
         float dirX = collisions.faceDir;
         float rayLength = Mathf.Abs(velocity.x) + skinWidth;
 
+        // if moving slower than skin width, increase ray length to double skin width
         if (Mathf.Abs(velocity.x) < skinWidth)
         {
             rayLength = 2 * skinWidth;
@@ -83,33 +95,41 @@ public class Controller2D : RaycastController {
 
             Debug.DrawRay(rayOrigin, Vector2.right * dirX * rayLength, Color.blue);
 
+            // if horizontal ray hit obstacle
             if (hit)
             {
-
+                // if distance to obstacle is 0 ignore it
                 if (hit.distance == 0)
                 {
                     continue;
                 }
-
+                
+                // determine slope of obstacle hit
                 float slopeAngle = Vector2.Angle(hit.normal, Vector2.up);
 
+                // if bottom ray and slope is climbable
                 if (i == 0 && slopeAngle <= maxClimbAngle)
                 {
                     if (collisions.descendingSlope)
                     {
+                        // if descending slope, set to not descending and get old velocity
                         collisions.descendingSlope = false;
                         velocity = collisions.velocityOld;
                     }
                     float distanceToSlopeStart = 0.0f;
+                    // if different slope
                     if (slopeAngle != collisions.slopeAngleOld)
                     {
+                        // move horizontall to new slope
                         distanceToSlopeStart = hit.distance - skinWidth;
                         velocity.x -= distanceToSlopeStart * dirX;
                     }
+                    // climb slope
                     ClimbSlope(ref velocity, slopeAngle);
                     velocity.x += distanceToSlopeStart * dirX;
                 }
 
+                // if not climbing slope or slope is too steap
                 if (!collisions.climbingSlope || slopeAngle > maxClimbAngle)
                 {
                     velocity.x = (hit.distance - skinWidth) * dirX;
@@ -141,16 +161,20 @@ public class Controller2D : RaycastController {
 
             if (hit)
             {
+                // if hit a through object
                 if (hit.collider.tag == "Through")
                 {
+                    // if going up or inside ignore
                     if (dirY == 1 || hit.distance == 0)
                     {
                         continue;
                     }
+                    // if falling through ignore
                     if (collisions.fallingThrough)
                     {
                         continue;
                     }
+                    // if pushed down, set to falling through and ignore
                     if (playerInput.y == -1)
                     {
                         collisions.fallingThrough = true;
@@ -192,10 +216,14 @@ public class Controller2D : RaycastController {
 
     void ClimbSlope(ref Vector3 velocity, float slopeAngle)
     {
+        // get x speed
         float moveDistance = Mathf.Abs(velocity.x);
+
         float climbVelY = Mathf.Sin(slopeAngle * Mathf.Deg2Rad) * moveDistance;
+        // if moving up slower than speed neede to climb
         if (velocity.y <= climbVelY)
         {
+            // climb the hil
             velocity.y = climbVelY;
             velocity.x = Mathf.Cos(slopeAngle * Mathf.Deg2Rad) * moveDistance * Mathf.Sign(velocity.x);
             collisions.below = true;
@@ -206,15 +234,22 @@ public class Controller2D : RaycastController {
 
     void DescendSlope(ref Vector3 velocity)
     {
+        // get x direction
         float directionX = Mathf.Sign(velocity.x);
+        // start ray from right if moving left, reverse otherwise
         Vector2 rayOrigin = (directionX == -1) ? raycastOrigins.bottomRight : raycastOrigins.bottomLeft;
+        // see if there was obstance underneath
         RaycastHit2D hit = Physics2D.Raycast(rayOrigin, -Vector2.up, Mathf.Infinity, collisionMask);
 
         if (hit)
         {
+            // get the angle of the slope
             float slopeAngle = Vector2.Angle(hit.normal, Vector2.up);
+            // if angled and is steap enough to descend
             if(slopeAngle != 0.0f && slopeAngle <= maxDescendAngle){
+                // if slope is in same direction that player is moving
                 if(Mathf.Sign(hit.normal.x) == directionX){
+                    // if distance to slope less than how far we have to move on y axis
                     if(hit.distance - skinWidth <= Mathf.Tan(slopeAngle * Mathf.Deg2Rad) * Mathf.Abs(velocity.x)){
                         float moveDistance = Mathf.Abs(velocity.x);
                         float descendVelY = Mathf.Sin(slopeAngle * Mathf.Deg2Rad) * moveDistance;

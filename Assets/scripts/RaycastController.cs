@@ -17,6 +17,7 @@ public class RaycastController : MonoBehaviour {
     public BoxCollider2D collider;
     public RaycastOrigins raycastOrigins;
 
+    // object that stores where to cast collision rays from
     public struct RaycastOrigins
     {
         public Vector2 topLeft, topRight;
@@ -26,6 +27,7 @@ public class RaycastController : MonoBehaviour {
     // Use this for initialization
     public virtual void Awake()
     {
+        // save reference to collider object
         collider = GetComponent<BoxCollider2D>();
     }
 
@@ -36,8 +38,10 @@ public class RaycastController : MonoBehaviour {
 
     public void UpdateRaycastOrigins()
     {
+        // get adjust bounds of the collider
         Bounds bounds = collider.bounds;
         bounds.Expand(skinWidth * -2);
+        // save the corner positions for raycasting
         raycastOrigins.bottomLeft = new Vector2(bounds.min.x, bounds.min.y);
         raycastOrigins.bottomRight = new Vector2(bounds.max.x, bounds.min.y);
         raycastOrigins.topLeft = new Vector2(bounds.min.x, bounds.max.y);
@@ -46,12 +50,16 @@ public class RaycastController : MonoBehaviour {
 
     public void CalculateRaySpacing()
     {
+        // get the bounds of the 2D collider
         Bounds bounds = collider.bounds;
+        // shrink the bounds by the skin width on each side
         bounds.Expand(skinWidth * -2);
 
+        // make sure there are atleast 2 rays coming from each side (the corners)
         horizontalRayCount = Mathf.Clamp(horizontalRayCount, 2, int.MaxValue);
         verticalRayCount = Mathf.Clamp(verticalRayCount, 2, int.MaxValue);
 
+        // calculate the spacing between each ray cast vertically and horizontally
         horizontalRaySpacing = bounds.size.y / (horizontalRayCount - 1);
         verticalRaySpacing = bounds.size.x / (verticalRayCount - 1);
     }
